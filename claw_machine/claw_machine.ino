@@ -159,6 +159,13 @@ void update_button_events()
 
         dashboard_ui.console_log("Modo Config Iniciado");
 
+        /* O modo config pode ser acionado a partir de QUALQUER estado,
+         * inclusive STATUS_RELAY_ON, pulando a limpeza daquele estado.
+         * Desliga o rele de credito para que ele nao fique preso ligado.
+         * (Os reles dos motores sao tratados por markStatusChanged.) */
+
+        relayOff();
+
         machineStatus = STATUS_CONFIG_MAPPING;
 
         markStatusChanged();
@@ -222,6 +229,17 @@ void markStatusChanged()
 {
     lastStatusChange   = millis();
     statusEntryPending = true;
+
+    /* Seguranca: STATUS_RUNNING e o unico estado que energiza os reles dos
+     * motores (via mapSticksToRelays). Desligamos aqui, em TODA transicao para
+     * outro estado, em vez de no ponto de saida de cada estado -- assim nenhum
+     * caminho de saida, atual ou futuro, consegue deixar um motor ligado.
+     * Ex.: o modo config pode ser acionado a partir de STATUS_RUNNING e pula
+     * o bloco de saida daquele estado. */
+
+    if (machineStatus != STATUS_RUNNING) {
+        allRelaysOff();
+    }
 }
 
 
@@ -387,7 +405,10 @@ void setup()
     dashboard_ui.init(&M5StamPLC.Display);
 
 
-    /* Estado inicial explicito */
+    /* Estado inicial explicito e conhecido: rele de credito desligado e
+     * maquina em IDLE. markStatusChanged() desenergiza os reles dos motores. */
+
+    relayOff();
 
     machineStatus = STATUS_IDLE;
 
@@ -600,6 +621,19 @@ void loop()
     }
 
     break;
+
+  }
+
+}
+
+
+/* Desenergiza os 4 reles dos motores do joystick. */
+
+void allRelaysOff() {
+
+  for (int i = 0; i < 4; i++) {
+
+    M5StamPLC.writePlcRelay(i, false);
 
   }
 
