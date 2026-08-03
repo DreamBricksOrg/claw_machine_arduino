@@ -1,0 +1,5 @@
+# PlatformIO
+.pio/
+
+# PlatformIO writes editor scaffolding here; the build does not need it.
+.vscode/
