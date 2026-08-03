@@ -111,6 +111,8 @@ constexpr unsigned long PRIZE_WAIT_MS          = 5000;
 constexpr unsigned long VIRTUAL_INPUT_TTL_MS   = 400;
 constexpr unsigned long WEB_INPUT_REFRESH_MS   = 200;   /* mirrored by hand in web_page.h JS */
 
+constexpr int           WEB_MAX_INPUT_PIN      = START_PIN;  /* highest web-drivable pin */
+
 constexpr const char*   AP_SSID                = "DBAdmin";
 constexpr const char*   AP_PASSWORD            = "31773177db";
 constexpr uint16_t      WEB_SERVER_PORT        = 80;
@@ -140,8 +142,9 @@ void clearVirtualInputs();
 bool virtualActive(int pin) const;           /* stamped && not expired */
 ```
 
-`poll()` expires stamps older than `VIRTUAL_INPUT_TTL_MS`. `stick()`,
-`rawInput()`, `clawButton()` and `startJustPressed()` return
+Expiry is evaluated lazily inside `virtualActive()` rather than swept in
+`poll()`, so a stamp can never be read after its deadline no matter when `poll()`
+last ran. `stick()`, `rawInput()`, `clawButton()` and `startJustPressed()` return
 `physical || virtualActive(pin)`. The `inputs()` snapshot feeding the dashboard
 reflects the merged value, so the IO panel shows web presses — matching v02.
 
@@ -303,9 +306,11 @@ Game duration must be measured from `Running` entry, but `_lastChange` is
 overwritten when `WaitPrize` is entered, so `Running`'s entry stamps a separate
 `_gameStartedAt`.
 
-`statusText()` returns v02's Portuguese strings, extended for the new states:
-`AGUARDANDO FICHA`, `LIBERANDO CRÉDITO`, `TELA DE ESPERA`, `AGUARDANDO INÍCIO`,
-`EM JOGO`, `AGUARDANDO PRÊMIO`, `MODO FREEPLAY`, `MODO CONFIGURAÇÃO`.
+`statusText()` returns v02's Portuguese strings, extended for the new states, but
+unaccented — consistent with every other string literal in the sketch, so source
+encoding cannot corrupt them on the way to the page: `AGUARDANDO FICHA`,
+`LIBERANDO CREDITO`, `TELA DE ESPERA`, `AGUARDANDO INICIO`, `EM JOGO`,
+`AGUARDANDO PREMIO`, `MODO FREEPLAY`, `MODO CONFIGURACAO`.
 
 ### `claw_machine.ino` — changes
 
