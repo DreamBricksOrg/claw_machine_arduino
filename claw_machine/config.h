@@ -19,6 +19,13 @@ constexpr int START_PIN       = 5;
 constexpr int PLC_INPUT_COUNT = 8;
 constexpr int PLC_RELAY_COUNT = 4;
 
+/* Prize sensor. Read directly, never through stickPin(). */
+constexpr int PRIZE_SENSOR_PIN = 7;
+
+/* Highest PLC input the web panel is allowed to drive. The prize sensor sits
+ * above it on purpose: a virtual win would be a cheat vector. */
+constexpr int WEB_MAX_INPUT_PIN = START_PIN;
+
 // enable this to test without the AC module
 //#define DISABLE_AC
 
@@ -40,22 +47,56 @@ constexpr unsigned long STICK_RELEASE_DEBOUNCE_MS = 50;
 constexpr unsigned long IO_POLL_INTERVAL_MS       = 50;
 constexpr unsigned long CLOCK_UPDATE_INTERVAL_MS  = 1000;
 
+/* How long WaitPrize samples the prize sensor before declaring a loss. */
+constexpr unsigned long PRIZE_WAIT_MS = 5000;
+
+/* A virtual (web) input expires this long after the last press message, so a
+ * client that vanishes mid-press cannot latch a control on. */
+constexpr unsigned long VIRTUAL_INPUT_TTL_MS = 400;
+
 /* ---- Serial ------------------------------------------------------------ */
 
 constexpr unsigned long SERIAL_BAUD = 115200;
 
-/* Set to 1 to render RTC time/date on the dashboard. Disabled to match the
- * previous behavior, where update_time_and_date() existed but was never called. */
-#define ENABLE_CLOCK_DISPLAY 0
+/* Renders RTC time/date on the dashboard. Enabled now that the clock can be set
+ * from the web panel -- without a way to correct it, a drifted RTC on screen was
+ * worse than no clock. */
+#define ENABLE_CLOCK_DISPLAY 1
+
+/* ---- Web control panel ------------------------------------------------- */
+
+constexpr const char* AP_SSID         = "DBAdmin";
+constexpr const char* AP_PASSWORD     = "31773177db";
+constexpr uint16_t    WEB_SERVER_PORT = 80;
+
+/* Mirrored by hand in web_page.h -- the JavaScript cannot read these. The hold
+ * repeat must stay comfortably below VIRTUAL_INPUT_TTL_MS or a held button will
+ * expire under the user's finger. */
+constexpr unsigned long WEB_INPUT_REFRESH_MS = 200;
+constexpr unsigned long WEB_STATUS_POLL_MS   = 500;
+
+/* ---- Game history ------------------------------------------------------ */
+
+constexpr const char* HISTORY_CSV_PATH   = "/historico.csv";
+constexpr const char* HISTORY_CSV_HEADER = "GAME_ID,DATA,HORA,TEMPO,RESULTADO";
+constexpr const char* NVS_NAMESPACE      = "arcade";
+constexpr const char* NVS_KEY_GAME_ID    = "gameId";
 
 /* ---- Tablet wire protocol ---------------------------------------------- */
 
 namespace Protocol {
 /* Tablet -> PLC */
-constexpr const char* CMD_COIN = "coin";
+constexpr const char* CMD_COIN     = "coin";
+constexpr const char* CMD_FREEPLAY = "freeplay";
 
-/* PLC -> tablet */
-constexpr const char* START_BUTTON = "0";
+/* PLC -> tablet.
+ *
+ * START_BUTTON was "0" through the modularization. The tablet app was updated in
+ * parallel with monolito_v02 and now expects "ready" on the start button, so the
+ * two share a string. They remain distinct events: START_BUTTON fires on the
+ * debounced rising edge of the physical/virtual start input, READY on entry to
+ * the Screen and Freeplay states. */
+constexpr const char* START_BUTTON = "ready";
 constexpr const char* READY        = "ready";
 constexpr const char* START        = "start";
 constexpr const char* CLAW         = "claw";
