@@ -49,10 +49,14 @@ public:
     const std::array<int, PLC_RELAY_COUNT>& relays() const { return _relays; }
 
 private:
+
+    #ifndef DISABLE_AC
     M5StamPLC_AC _ac;
+    #endif
 
     std::array<int, PLC_INPUT_COUNT> _inputs{};
     std::array<int, PLC_RELAY_COUNT> _relays{};
+    bool _creditRelay = false;
 
     unsigned long _lastPoll       = 0;
     bool          _lastStartInput = false;

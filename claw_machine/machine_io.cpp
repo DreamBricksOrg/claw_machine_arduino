@@ -9,10 +9,12 @@ void MachineIO::begin()
 {
     M5StamPLC.begin();
 
+    #ifndef DISABLE_AC
     while (!_ac.begin()) {
         printf("M5StamPLC-AC init failed, retry in 1s...\n");
         delay(1000);
     }
+    #endif // DISABLE_AC
 }
 
 void MachineIO::poll()
@@ -90,12 +92,14 @@ void MachineIO::allMotorRelaysOff()
 
 void MachineIO::creditRelay(bool on)
 {
+    #ifndef DISABLE_AC
     _ac.writeRelay(on);
     if (on) {
         _ac.setStatusLight(0, 1, 0);
     } else {
         _ac.setStatusLight(1, 0, 0);
     }
+    #endif // DISABLE_AC
 }
 
 bool MachineIO::getRtcTime(struct tm* out)

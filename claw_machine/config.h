@@ -19,6 +19,9 @@ constexpr int START_PIN       = 5;
 constexpr int PLC_INPUT_COUNT = 8;
 constexpr int PLC_RELAY_COUNT = 4;
 
+// enable this to test without the AC module
+//#define DISABLE_AC
+
 /* Stick index (0..3) -> PLC input pin. Single source of truth: both MachineIO
  * and StickMapper use this instead of keeping their own tables. */
 inline int stickPin(int index)
