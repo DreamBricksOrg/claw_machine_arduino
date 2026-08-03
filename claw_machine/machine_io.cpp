@@ -8,7 +8,12 @@
 void MachineIO::begin()
 {
     /* The internal microSD reader must be enabled on the config before the
-     * driver starts. GameLog mounts nothing itself; it relies on this. */
+     * driver starts. GameLog mounts nothing itself; it relies on this.
+     *
+     * config.enableCan must stay false/unset: TabletLink (tablet_link.cpp)
+     * installs and owns the TWAI driver directly, at 500 kbps. Letting
+     * M5StamPLC.begin() also bring up CAN (its default is 1 Mbps) would
+     * install the driver twice and abort the board via ESP_ERROR_CHECK. */
     auto config         = M5StamPLC.config();
     config.enableSdCard = true;
     M5StamPLC.config(config);
