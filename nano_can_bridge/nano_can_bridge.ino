@@ -45,9 +45,14 @@ void pumpSerialToCan()
         if (c == '\n' || c == '\r') {
             if (discarding) {
                 discarding = false;
-            } else if (lineLen > 0) {
-                lineBuf[lineLen] = '\0';
-                CAN0.sendMsgBuf(ID_TABLET_TO_PLC, 0, lineLen, (uint8_t*)lineBuf);
+            } else {
+                while (lineLen > 0 && (lineBuf[lineLen - 1] == ' ' || lineBuf[lineLen - 1] == '\t')) {
+                    lineLen--;
+                }
+                if (lineLen > 0) {
+                    lineBuf[lineLen] = '\0';
+                    CAN0.sendMsgBuf(ID_TABLET_TO_PLC, 0, lineLen, (uint8_t*)lineBuf);
+                }
             }
             lineLen = 0;
             continue;
