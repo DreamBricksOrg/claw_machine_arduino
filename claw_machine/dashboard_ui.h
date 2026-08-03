@@ -19,6 +19,8 @@ public:
     std::string statusDate;
     std::array<int, 8> inputStateList;
     std::array<int, 4> relayStateList;
+    /* AC module credit relay, rendered as the 5th block of the relay panel. */
+    int creditRelayState = 0;
 
     void init(LovyanGFX* parent);
     void render();

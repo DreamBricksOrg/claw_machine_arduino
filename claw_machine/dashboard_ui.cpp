@@ -215,7 +215,9 @@ void DashboardUI::render_io_panel()
     }
 
     /* ------------------------------- Relay panel ------------------------------ */
-    constexpr int block_output_w   = 32;
+    /* One block per PLC relay plus a trailing one for the AC credit relay.
+     * 5 * 25 + 4 * 4 = 141, leaving an even 7px margin on both sides. */
+    constexpr int block_output_w   = 25;
     constexpr int block_output_h   = 41;
     constexpr int block_output_mt  = 83;
     constexpr int block_output_ml  = 7;
@@ -229,16 +231,19 @@ void DashboardUI::render_io_panel()
                                  panel_w - inner_pannel_input_ml * 2, pannel_input_h - inner_pannel_input_mt * 2,
                                  inner_pannel_input_r, color_inner_pannel);
 
-    /* State blocks */
-    for (int i = 0; i < relayStateList.size(); i++) {
+    /* State blocks: the PLC relays first, then the AC credit relay */
+    const int block_output_count = relayStateList.size() + 1;
+    for (int i = 0; i < block_output_count; i++) {
+        bool state = (i < (int)relayStateList.size()) ? relayStateList[i] : creditRelayState;
+
         _canvas->fillSmoothRoundRect(panel_x + block_output_ml + (block_output_w + block_output_gap) * i,
                                      panel_y + block_output_mt, block_output_w, block_output_h, block_output_r,
-                                     relayStateList[i] ? color_block_input_high : color_block_input_low);
+                                     state ? color_block_input_high : color_block_input_low);
 
         _canvas->setTextSize(1);
         _canvas->loadFont(montserrat_semibolditalic_12);
         _canvas->setTextDatum(middle_center);
-        _canvas->setTextColor(relayStateList[i] ? color_block_input_label_high : color_block_input_label_low);
+        _canvas->setTextColor(state ? color_block_input_label_high : color_block_input_label_low);
         _canvas->drawNumber(i + 1,
                             panel_x + block_output_ml + (block_output_w + block_output_gap) * i + block_output_w / 2,
                             panel_y + block_output_mt + block_output_h / 2);

@@ -48,6 +48,10 @@ public:
     const std::array<int, PLC_INPUT_COUNT>& inputs() const { return _inputs; }
     const std::array<int, PLC_RELAY_COUNT>& relays() const { return _relays; }
 
+    /* The AC module's relay cannot be read back, so this mirrors the last
+     * value written by creditRelay(). */
+    bool creditRelayState() const { return _creditRelay; }
+
 private:
 
     #ifndef DISABLE_AC

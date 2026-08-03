@@ -92,6 +92,10 @@ void MachineIO::allMotorRelaysOff()
 
 void MachineIO::creditRelay(bool on)
 {
+    /* Tracked outside the guard so the dashboard shows the intended state even
+     * when the AC module is compiled out. */
+    _creditRelay = on;
+
     #ifndef DISABLE_AC
     _ac.writeRelay(on);
     if (on) {

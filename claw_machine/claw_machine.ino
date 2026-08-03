@@ -43,7 +43,8 @@ void loop()
     machineIo.poll();
 
     dashboardUi.inputStateList = machineIo.inputs();
-    dashboardUi.relayStateList = machineIo.relays();
+    dashboardUi.relayStateList   = machineIo.relays();
+    dashboardUi.creditRelayState = machineIo.creditRelayState();
     dashboardUi.render();
 
     game.update();
