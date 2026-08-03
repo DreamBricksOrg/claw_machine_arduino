@@ -12,6 +12,7 @@ void GameStateMachine::begin()
     /* Explicit, known initial state: credit relay off and machine idle.
      * transitionTo() de-energizes the motor relays. */
     _io.creditRelay(false);
+    _freeplayMode = false;
     transitionTo(MachineStatus::Idle);
 }
 
@@ -35,6 +36,10 @@ void GameStateMachine::enterConfigMode()
 {
     _ui.console_log("Modo Config Iniciado");
 
+    /* Config and freeplay must not overlap: leaving freeplay armed would send
+     * the walkthrough's exit straight back into a free game. */
+    _freeplayMode = false;
+
     /* Config mode can be entered from ANY state, including RelayOn, skipping
      * that state's cleanup. Release the credit relay so it cannot stay latched.
      * (The motor relays are handled by transitionTo.) */
@@ -43,6 +48,57 @@ void GameStateMachine::enterConfigMode()
     transitionTo(MachineStatus::ConfigMapping);
     _mapper.beginConfig();
     _ui.console_log(_mapper.currentPrompt());
+}
+
+void GameStateMachine::setFreeplay(bool on)
+{
+    _freeplayMode = on;
+
+    /* Same hazard as config mode: reachable from RelayOn and Running, skipping
+     * their cleanup. Release the credit relay so it cannot stay latched.
+     * (transitionTo handles the motor relays.) */
+    _io.creditRelay(false);
+
+    if (_freeplayMode) {
+        _ui.console_log("Modo Freeplay ATIVADO");
+        transitionTo(MachineStatus::Freeplay);
+    } else {
+        _ui.console_log("Modo Freeplay DESATIVADO");
+        transitionTo(MachineStatus::Idle);
+    }
+}
+
+String GameStateMachine::statusText() const
+{
+    switch (_status) {
+    case MachineStatus::Idle:          return "AGUARDANDO FICHA";
+    case MachineStatus::RelayOn:       return "LIBERANDO CREDITO";
+    case MachineStatus::Screen:        return "TELA DE ESPERA";
+    case MachineStatus::WaitTimer:     return "AGUARDANDO INICIO";
+    case MachineStatus::Running:       return "EM JOGO";
+    case MachineStatus::WaitPrize:     return "AGUARDANDO PREMIO";
+    case MachineStatus::Freeplay:      return "MODO FREEPLAY";
+    case MachineStatus::ConfigMapping: return "MODO CONFIGURACAO";
+    }
+    return "DESCONHECIDO";
+}
+
+bool GameStateMachine::downloadAllowed() const
+{
+    return _status == MachineStatus::Idle || _status == MachineStatus::Freeplay;
+}
+
+void GameStateMachine::finishGame(bool won)
+{
+    _ui.console_log(won ? "VITORIA! Premio detectado" : "DERROTA! Nenhum premio");
+
+    if (_log.record(millis() - _gameStartedAt, won)) {
+        _ui.console_log("SD: Registro Salvo");
+    } else {
+        _ui.console_log("SD: Erro ao Salvar");
+    }
+
+    transitionTo(_freeplayMode ? MachineStatus::Freeplay : MachineStatus::Idle);
 }
 
 void GameStateMachine::onCommand(const char* cmd)
@@ -57,6 +113,11 @@ void GameStateMachine::onCommand(const char* cmd)
             /* Credit outside Idle: ignored, but visible on the console. */
             _ui.console_log("Coin ignorado (ocupado)");
         }
+        return;
+    }
+
+    if (strcmp(cmd, Protocol::CMD_FREEPLAY) == 0) {
+        setFreeplay(!_freeplayMode);
         return;
     }
 
@@ -100,6 +161,12 @@ void GameStateMachine::update()
         enterConfigMode();
     }
 
+    /* BtnA and the web panel's Freeplay button reach the same method, so the two
+     * entry points cannot drift apart. */
+    if (_io.freeplayButtonClicked()) {
+        setFreeplay(!_freeplayMode);
+    }
+
     /* Start button: sends its byte once per press (rising edge).
      *
      * An earlier version sent it on every iteration while the button was held.
@@ -121,7 +188,9 @@ void GameStateMachine::update()
         if (millis() - _lastChange >= RELAY_ON_TIME) {
             _io.creditRelay(false);
             _ui.console_log("Relay Off");
-            transitionTo(MachineStatus::Screen);
+            /* Freeplay already sent "ready" on entry to its own state, so it
+             * skips the tablet's screen handshake and goes straight to play. */
+            transitionTo(_freeplayMode ? MachineStatus::Running : MachineStatus::Screen);
         }
         break;
 
@@ -140,25 +209,61 @@ void GameStateMachine::update()
 
     case MachineStatus::WaitTimer:
         if (_io.stick(0) || _io.stick(1) || _io.stick(2) || _io.stick(3)) {
-            _tablet.send(Protocol::START);
             _ui.console_log("Contagem iniciada");
             transitionTo(MachineStatus::Running);
         }
         break;
 
-    case MachineStatus::Running:
-        /* Log only on entry, not every iteration. */
+    case MachineStatus::Freeplay:
+        /* On entry, put the tablet on its attract screen and wait. */
         if (_entryPending) {
-            _ui.console_log("Time running");
+            _ui.console_log("Freeplay: aguardando jogada");
+            _tablet.send(Protocol::READY);
             _entryPending = false;
+        }
+
+        if (_io.stick(0) || _io.stick(1) || _io.stick(2) || _io.stick(3)) {
+            /* A free game still issues a real credit, so the machine's own
+             * counters stay consistent with the tablet's. RelayOn releases it
+             * after RELAY_ON_TIME and routes back here to Running. */
+            _io.creditRelay(true);
+            _ui.console_log("Relay On (Freeplay)");
+            transitionTo(MachineStatus::RelayOn);
+        }
+        break;
+
+    case MachineStatus::Running:
+        if (_entryPending) {
+            /* "start" is sent HERE, not at the stick press, so both entry paths
+             * -- WaitTimer and the freeplay credit pulse -- start the tablet's
+             * timer at the instant the joystick actually drives the motors. In
+             * the monolith the freeplay path sent it a full second early. */
+            _tablet.send(Protocol::START);
+            _ui.console_log("Time running");
+            _gameStartedAt = millis();
+            _entryPending  = false;
         }
 
         _mapper.apply();
 
         if (_io.clawButton() || millis() - _lastChange > RUNNING_TIMEOUT) {
             _tablet.send(Protocol::CLAW);
-            _ui.console_log("Win/Lose");
-            transitionTo(MachineStatus::Idle);
+            _ui.console_log("Aguardando sensor...");
+            transitionTo(MachineStatus::WaitPrize);
+        }
+        break;
+
+    case MachineStatus::WaitPrize:
+        /* Replaces the monolith's blocking 5 s while-loop. As a state, it lets
+         * loop() keep calling TabletLink::pump() throughout: the USB CDC receive
+         * queue holds 256 bytes and the ISR silently discards the overflow, so
+         * five blocked seconds cost real tablet messages.
+         *
+         * transitionTo() has already de-energized the motor relays on entry. */
+        if (_io.prizeSensor()) {
+            finishGame(true);
+        } else if (millis() - _lastChange >= PRIZE_WAIT_MS) {
+            finishGame(false);
         }
         break;
 

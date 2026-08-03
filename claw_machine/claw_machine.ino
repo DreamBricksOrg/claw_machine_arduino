@@ -8,6 +8,7 @@
 
 #include "config.h"
 #include "dashboard_ui.h"
+#include "game_log.h"
 #include "game_state.h"
 #include "machine_io.h"
 #include "stick_mapper.h"
@@ -16,9 +17,10 @@
 MachineIO   machineIo;
 TabletLink  tablet;
 DashboardUI dashboardUi;
+GameLog     gameLog(machineIo);
 
 StickMapper      mapper(machineIo);
-GameStateMachine game(machineIo, tablet, mapper, dashboardUi);
+GameStateMachine game(machineIo, tablet, mapper, dashboardUi, gameLog);
 
 void setup()
 {
@@ -26,6 +28,9 @@ void setup()
     tablet.send("StamPLC connected to PC!");
 
     machineIo.begin();
+
+    /* After machineIo.begin(): that call is what enables the SD reader. */
+    gameLog.begin();
 
     dashboardUi.init(&M5StamPLC.Display);
 
