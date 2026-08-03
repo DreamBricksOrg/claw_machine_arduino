@@ -54,9 +54,17 @@ constexpr unsigned long PRIZE_WAIT_MS = 5000;
  * client that vanishes mid-press cannot latch a control on. */
 constexpr unsigned long VIRTUAL_INPUT_TTL_MS = 400;
 
-/* ---- Serial ------------------------------------------------------------ */
+/* ---- CAN link to tablet bridge ------------------------------------------
+ *
+ * The StamPLC no longer talks directly to the tablet over Serial. It talks
+ * CAN to an Arduino Nano (see nano_can_bridge/), which relays bytes to/from
+ * the tablet over its own Serial connection. These IDs are shared with that
+ * sketch -- keep them identical on both sides, they are not negotiated. */
 
-constexpr unsigned long SERIAL_BAUD = 115200;
+namespace CanBus {
+constexpr uint32_t ID_PLC_TO_TABLET = 0x100;
+constexpr uint32_t ID_TABLET_TO_PLC = 0x101;
+}  // namespace CanBus
 
 /* Renders RTC time/date on the dashboard. Enabled now that the clock can be set
  * from the web panel -- without a way to correct it, a drifted RTC on screen was

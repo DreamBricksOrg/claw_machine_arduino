@@ -27,8 +27,7 @@ WebPortal web(machineIo, gameLog, dashboardUi);
 
 void setup()
 {
-    tablet.begin(SERIAL_BAUD);
-    tablet.send("StamPLC connected to PC!");
+    tablet.begin();
 
     machineIo.begin();
 

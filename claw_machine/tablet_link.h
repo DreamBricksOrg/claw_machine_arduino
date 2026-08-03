@@ -8,33 +8,31 @@
 #include <functional>
 #include "config.h"
 
-/* Sole owner of the serial link to the tablet. No other translation unit
- * touches Serial. */
+/* Sole owner of the CAN link to the tablet bridge (an Arduino Nano relaying
+ * to/from the tablet over its own Serial connection -- see
+ * nano_can_bridge/). No other translation unit touches the TWAI driver. */
 class TabletLink {
 public:
     using CommandHandler = std::function<void(const char*)>;
 
-    void begin(unsigned long baud = SERIAL_BAUD);
+    void begin();
 
     void onCommand(CommandHandler handler) { _handler = std::move(handler); }
 
-    /* Drains everything waiting on the serial port WITHOUT blocking, assembles
-     * lines terminated by '\n' or '\r', and dispatches each complete line to
-     * the handler.
+    /* Drains every pending CAN frame WITHOUT blocking and dispatches each
+     * one addressed to us to the handler as a null-terminated string.
      *
-     * Must be called every loop() iteration, in every state: the USB CDC
-     * receive queue holds only 256 bytes, and once it fills, the ISR silently
-     * discards the rest of the packet (HWCDC.cpp, xQueueSendFromISR). That was
-     * the cause of the "lost" tablet messages. */
+     * Must be called every loop() iteration, in every state, so frames
+     * don't back up in the driver's internal RX queue. */
     void pump();
 
-    void send(const char* msg) { Serial.println(msg); }
+    /* msg must be <= 8 bytes -- CAN frames carry at most 8 data bytes.
+     * Every Protocol:: command string satisfies this; longer strings are
+     * truncated defensively rather than dropped. */
+    void send(const char* msg);
 
 private:
-    static constexpr size_t LINE_BUFFER_SIZE = 32;
+    static constexpr size_t MAX_PAYLOAD = 8;
 
-    char           _line[LINE_BUFFER_SIZE];
-    size_t         _len        = 0;
-    bool           _discarding = false;
     CommandHandler _handler;
 };
