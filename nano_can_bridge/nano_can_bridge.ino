@@ -55,6 +55,8 @@ void pumpSerialToCan()
                 if (lineLen > 0) {
                     lineBuf[lineLen] = '\0';
                     CAN0.sendMsgBuf(ID_TABLET_TO_PLC, 0, lineLen, (uint8_t*)lineBuf);
+                    ledOnStart = millis();
+                    digitalWrite(LED_PIN, HIGH);
                 }
             }
             lineLen = 0;
@@ -95,20 +97,20 @@ void pumpCanToSerial()
 
         Serial.write(data, len);
         Serial.write('\n');
-        ledOnStart = millis();
-        digitalWrite(LED_PIN, HIGH);
     }
 }
 
 void setup()
 {
-    Serial.begin(SERIAL_BAUD);
-
     while (CAN0.begin(MCP_ANY, CAN_BUS_SPEED, CAN_CLOCK_MHZ) != CAN_OK) {
         delay(200);  // retry until the MCP2515 answers
     }
     CAN0.setMode(MCP_NORMAL);
     pinMode(LED_PIN, OUTPUT);
+
+    // needs to initialize AFTER the CAN to avoid the messages that it sends in the
+    // serial during its initialization.
+    Serial.begin(SERIAL_BAUD);
 }
 
 void loop()
