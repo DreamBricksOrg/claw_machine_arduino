@@ -15,6 +15,9 @@
 #include <SPI.h>
 #include <mcp_can.h>
 
+#define LED_PIN 3
+unsigned long ledOnStart = 0;
+
 /* ---- Wiring -- adjust to match your board ------------------------------ */
 constexpr uint8_t CAN_CS_PIN     = 10;         // MCP2515 CS; SPI is the Nano's default (SCK13/MOSI11/MISO12)
 constexpr uint8_t CAN_CLOCK_MHZ  = MCP_8MHZ;   // crystal on the MCP2515 module
@@ -92,6 +95,8 @@ void pumpCanToSerial()
 
         Serial.write(data, len);
         Serial.write('\n');
+        ledOnStart = millis();
+        digitalWrite(LED_PIN, HIGH);
     }
 }
 
@@ -103,10 +108,15 @@ void setup()
         delay(200);  // retry until the MCP2515 answers
     }
     CAN0.setMode(MCP_NORMAL);
+    pinMode(LED_PIN, OUTPUT);
 }
 
 void loop()
 {
     pumpSerialToCan();
     pumpCanToSerial();
+
+    if (digitalRead(LED_PIN) && millis() - ledOnStart > 1000) {
+      digitalWrite(LED_PIN, LOW);
+    }
 }
